@@ -10,9 +10,8 @@
 using namespace cv;
 using namespace std;
 
-
 #define AREA_TH 500 //minimalna powierzchnia bbox
-#define START_FRAME 1200 // ramka startowa
+#define START_FRAME 0 // ramka startowa
 #define TH_BIN 150// prog binaryzacji
 #define DIFF_TH 30
 #define MOVIN_PIXELS_TH 0.01
@@ -23,7 +22,7 @@ typedef Vec<float, 3> vec_float_3;
 
 typedef struct{
 	int width;
-	int hight;
+	int height;
 	//wsp lewego gornego rogu
 	int top_x;
 	int top_y;
@@ -42,11 +41,10 @@ int object::staticObjects = 1;
 //deklaracja wlasnych funkcji
 
 inline void median(Mat * model, Mat * medianModel, int size){
-
 	//cout<< "funkcja median\n";
 	int threshold = size*size / 2;
 	int r = size / 2;
-	for(int i = 0; i< model->rows; i++)
+	for(int i = 0; i< model->rows; i++){
 		for(int j = 0; j< model->cols; j++){
 			if((i >= r) && (i < model->rows - r-1) && (j >= r) && (j < model->cols - r-1)){
 				int suma = 0;
@@ -66,10 +64,10 @@ inline void median(Mat * model, Mat * medianModel, int size){
 				medianModel->at<uchar>(i,j) = model->at<uchar>(i,j);
 			//cout << i << " " << j << " " << int(medianModel->at<uchar>(i,j)) << endl;
 		}
+	}
 }
 
 inline void RGB2YCBCR(const Mat * image, Mat * img_YCbCr, Mat * test){
-
 	const float a11 = 0.299;
 	const float a12 = 0.587;
 	const float a13 = 0.114;
@@ -83,7 +81,7 @@ inline void RGB2YCBCR(const Mat * image, Mat * img_YCbCr, Mat * test){
 	vec_uchar_3 p;
 	vec_uchar_3 f;
 
-	for(int i = 0; i < image->rows; i++)
+	for(int i = 0; i < image->rows; i++){
 		for(int j = 0; j < image->cols; j++){
 			p = image->at<vec_uchar_3>(i,j);
 			float p0 = float(p[0]);
@@ -99,34 +97,33 @@ inline void RGB2YCBCR(const Mat * image, Mat * img_YCbCr, Mat * test){
 		    img_YCbCr->at<vec_uchar_3>(i,j) = f;
 
 		    vec_uchar_3 t = test->at<vec_uchar_3>(i,j);
-
 		}
+    }
 }
 
-inline int countStaticPixels(const Mat * model_bin, const Mat * diff, const int x, const int y, const int width, const int hight){
+inline int countStaticPixels(const Mat * model_bin, const Mat * diff, const int x, const int y, const int width, const int height){
 	int result = 0;
-	for(int i = x; i < x + hight; i++)
+	for(int i = x; i < x + height; i++){
 		for(int j= y; j < y + width; j++){
 			if(model_bin->at<uchar>(i,j) == 255 && diff->at<uchar>(i,j) == 255)
 				result++;
 		}
+	}
 	return result;
 }
 
-
-inline object * createObject(int id, bool visible, int counter, int x, int y, int width, int hight){
+inline object * createObject(int id, bool visible, int counter, int x, int y, int width, int height){
 
 	box labelBox;
 	labelBox.top_x = x;
 	labelBox.top_y = y;
 	labelBox.width = width;
-	labelBox.hight = hight;
-
+	labelBox.height = height;
 
 	object * newObject = new object;
 	newObject->id = id;
 	newObject->label_box = labelBox;
-	newObject->area = labelBox.width * labelBox.hight;
+	newObject->area = labelBox.width * labelBox.height;
 	newObject->visible = visible;
 	newObject->counter = counter;
 	return newObject;
@@ -139,7 +136,7 @@ inline object * createObject(int id, bool visible, int counter, box labelBox){
 	object * newObject = new object;
 	newObject->id = id;
 	newObject->label_box = labelBox;
-	newObject->area = labelBox.width * labelBox.hight;
+	newObject->area = labelBox.width * labelBox.height;
 	newObject->visible = visible;
 	newObject->counter = counter;
 	return newObject;
@@ -147,31 +144,29 @@ inline object * createObject(int id, bool visible, int counter, box labelBox){
 
 inline int commonArea(const object * a, const object * b){
 	//cout<< "funkcja commonarea\n";
-
 	int result = 0;
 	int w, h;
-	if(((b->label_box.top_x < a->label_box.top_x)&&(b->label_box.top_x + b->label_box.width > a->label_box.top_x)) || ((a->label_box.top_x < b->label_box.top_x)&&(a->label_box.top_x + a->label_box.width > b->label_box.top_x)))
-		if(((b->label_box.top_y < a->label_box.top_y)&&(b->label_box.top_y + b->label_box.hight > a->label_box.top_y)) || (((a->label_box.top_y < b->label_box.top_y))&&(a->label_box.top_y + a->label_box.hight > b->label_box.top_y))){
+	if(((b->label_box.top_x < a->label_box.top_x)&&(b->label_box.top_x + b->label_box.height > a->label_box.top_x)) || ((a->label_box.top_x < b->label_box.top_x)&&(a->label_box.top_x + a->label_box.height > b->label_box.top_x))){
+		if(((b->label_box.top_y < a->label_box.top_y)&&(b->label_box.top_y + b->label_box.width > a->label_box.top_y)) || (((a->label_box.top_y < b->label_box.top_y))&&(a->label_box.top_y + a->label_box.width > b->label_box.top_y))){
 			if(a->label_box.top_x > b->label_box.top_x)
-				w = b->label_box.top_x + b->label_box.width - a->label_box.top_x;
+				w = b->label_box.top_x + b->label_box.height - a->label_box.top_x;
 			else
-				w = a->label_box.top_x + a->label_box.width - b->label_box.top_x;
+				w = a->label_box.top_x + a->label_box.height - b->label_box.top_x;
+
 			if(a->label_box.top_y > b->label_box.top_y)
-				h = b->label_box.top_y + b->label_box.hight - a->label_box.top_y;
+				h = b->label_box.top_y + b->label_box.width - a->label_box.top_y;
 			else
-				h = a->label_box.top_y + a->label_box.hight - b->label_box.top_y;
+				h = a->label_box.top_y + a->label_box.width - b->label_box.top_y;
 
 			result = w*h;
 		}
-
+    }
 	return result;
 }
 
 void assignToObject(vector<object *> *staticObject, vector<object *> * tempStaticObject){
 	//cout<< "funkcja assign\n";
-
 	for(int i = 0; i< tempStaticObject->size(); i++){
-
 		int best = -1;
 		int maxIntersection = 0;
 
@@ -186,7 +181,6 @@ void assignToObject(vector<object *> *staticObject, vector<object *> * tempStati
 				maxIntersection = intersectionRatio;
 				best = j;
 			}
-
 		}
 
 		//jesli nie przypisano zadnego to mamy nowy obiekt statyczny
@@ -214,7 +208,6 @@ void assignToObject(vector<object *> *staticObject, vector<object *> * tempStati
 }
 
 inline void removeInvisible(vector<object *> * v){
-
 	//cout<< "funkcja removeInvisible\n";
 	vector <object*> n;
 	for(int i = 0; i< v->size(); i++){
@@ -234,17 +227,15 @@ inline void removeInvisible(vector<object *> * v){
 }
 
 void drawBox(Mat * image, const vector<object *> * v){
-
 	//cout<< "funkcja drawbox\n";
 	box rec;
 	for(int i =0 ;i < v->size(); i++){
 		rec = (*v)[i]->label_box;
 
-
-		int top_y = rec.top_y;
-		int left_most_x = rec.top_x;
-		int x_width = rec.width;
-		int y_width = rec.hight;
+		int left_most_y = rec.top_y;
+		int top_x = rec.top_x;
+		int width = rec.width;
+		int height = rec.height;
 
 		vec_uchar_3 color;
 		if((*v)[i]->counter > NO_MOVEMENT_TH)
@@ -253,15 +244,14 @@ void drawBox(Mat * image, const vector<object *> * v){
 			color = vec_uchar_3(255,0,0);
 		//odfiltrowanie najmniejszych box - ów
 
-		for(int c = left_most_x; c < left_most_x + x_width; c++){
-			image->at<vec_uchar_3>(top_y, c) = color;
-			image->at<vec_uchar_3>(top_y + y_width, c) = color;
+		for(int c = top_x; c < top_x + height; c++){
+			image->at<vec_uchar_3>(c, left_most_y) = color;
+			image->at<vec_uchar_3>(c, left_most_y + width) = color;
 		}
-		for(int r = top_y; r < top_y + y_width; r++){
-			image->at<vec_uchar_3>(r, left_most_x) = color;
-			image->at<vec_uchar_3>(r, left_most_x + x_width) = color;
+		for(int r = left_most_y; r < left_most_y + width; r++){
+			image->at<vec_uchar_3>(top_x, r) = color;
+			image->at<vec_uchar_3>(top_x + height, r) = color;
 		}
-
 //        namedWindow( "Display image", WINDOW_AUTOSIZE );// Create a window for display.
 //
 //        imshow( "Display image", *image );
@@ -272,8 +262,6 @@ void drawBox(Mat * image, const vector<object *> * v){
 //
 int main( int argc, char** argv )
 {
-
-
     Mat image;
     Mat model;
     Mat model_bin1;
@@ -284,7 +272,7 @@ int main( int argc, char** argv )
     Mat diff_img;
     Mat model_YCRCB;
     Mat FDMASK;
-    string dir = "D:\\studia\\IV_rok\\sem_8\\PSRA\\3\\";
+    string dir = "3/"; // "D:\\studia\\IV_rok\\sem_8\\PSRA\\3\\";
     //string dir = "/home/lsriw/video_datasets/pets_2006/S1-T1-C/video/pets2006/S1-T1-C/3/";
     string file = "S1-T1-C.";
     string ext = ".jpeg";
@@ -293,13 +281,28 @@ int main( int argc, char** argv )
 	vector<object *> staticObject;
 	vector<object *> tempStaticObject;
 
-	object::staticObjects = 1;
+//        namedWindow( "Display model", WINDOW_AUTOSIZE );// Create a window for display.
+    namedWindow( "Display model_bin", WINDOW_AUTOSIZE );// Create a window for display.
+//        namedWindow( "Display diff", WINDOW_AUTOSIZE );// Create a window for display.
+//        namedWindow( "Display YCRCB", WINDOW_AUTOSIZE );// Create a window for display.
+		namedWindow( "Display YCBCR", WINDOW_AUTOSIZE );// Create a window for display.
+        namedWindow( "Display image", WINDOW_AUTOSIZE );// Create a window for display.
 
+	// stringstream ss; //MOCK
+
+	object::staticObjects = 1;
 
     float alpha = 0.984375;
 
-    for(int i = START_FRAME; i<3020; i++)
-    {
+    for(int i = START_FRAME; i<3020; i++){
+//        ss.seekp(0); //MOCK
+//        ss << i; //MOCK
+//
+//        if(i<10) path = dir + file + "0000" + ss.str() + ext; //MOCK
+//        else if(i<100) path = dir + file + "000" + ss.str() + ext; //MOCK
+//        else if(i<1000) path = dir + file + "00" + ss.str() + ext; //MOCK
+//        else path = dir + file + "0" + ss.str() + ext; //MOCK
+
         if(i<10)
             path = dir + file + "0000" + to_string(i) + ext;
         else if(i < 100)
@@ -348,17 +351,14 @@ int main( int argc, char** argv )
             //model.convertTo(model_bin1, CV_8SC3);
             img_YCBCR.copyTo(img_delay);
             image.copyTo(diff_img);
-
         }
 
         else{
-            for(int j = 0; j < img_YCBCR.rows; j++)
-                for(int k = 0; k < img_YCBCR.cols; k++)
-                {
+            for(int j = 0; j < img_YCBCR.rows; j++){
+                for(int k = 0; k < img_YCBCR.cols; k++){
                     vec_uchar_3 p = img_YCBCR.at<vec_uchar_3>(j,k); // piksel obecnej ramki w ycbcr
 
                     vec_uchar_3 m = model_YCRCB.at<vec_uchar_3>(j,k); //piksel obecnego modelu
-
 
 					//skadowe piksela z ramki opoznionej
 					int pd0 = img_delay.at<vec_uchar_3>(j,k)[0];
@@ -388,43 +388,37 @@ int main( int argc, char** argv )
 	                    model.at<vec_uchar_3>(j,k) = vec_uchar_3(p1+m1,p2+m2,p3+m3);
 					}
 
-
 					//-------------------------------------------------------------------------------------------------------
 					//tworzenie roznicy pomiedzy dwoma ramkami
 					//FDMASK.at<vec_uchar_3>(j,k) = vec_uchar_3(abs(pd0 - p[0]), abs(pd1 - p[1]), abs(pd2 - p[2]));
 					FDMASK.at<vec_uchar_3>(j,k) = vec_uchar_3(diff_delay,diff_delay,diff_delay);
 					img_delay.at<vec_uchar_3>(j,k) = img_YCBCR.at<vec_uchar_3>(j,k);
+                }
+            }
 
-					}
+            vector<Mat> rgbChannels(3);
+            split(model_bin1, rgbChannels);
 
+            median(&(rgbChannels[0]), &medianModel, 5);
+            //medianBlur(rgbChannels[0], medianModel, 5);
+            int t = connectedComponentsWithStats(medianModel, labels, stats, centroid,8,CV_32S);
 
-					vector<Mat> rgbChannels(3);
-					split(model_bin1, rgbChannels);
+            labels.convertTo(labels, CV_8SC3);
+            labels = labels * 10;
 
+            if (t > 0){ //label nr 0 to tło
+                for(int i = 1; i<t; i++){
+                    //TODO wyswietlenie ramek z labels
+                    double x = centroid.at<double>(i, 0);
+                    double y = centroid.at<double>(i, 1);
 
-					median(&(rgbChannels[0]), &medianModel, 5);
-					//medianBlur(rgbChannels[0], medianModel, 5);
+                    int top_x = stats.at<int>(i, CC_STAT_TOP);
+                    int left_most_y = stats.at<int>(i, CC_STAT_LEFT);
+                    int height = stats.at<int>(i, CC_STAT_HEIGHT);
+                    int width = stats.at<int>(i, CC_STAT_WIDTH);
 
-					int t = connectedComponentsWithStats(medianModel, labels, stats, centroid,8,CV_32S);
-
-
-					labels.convertTo(labels, CV_8SC3);
-					labels = labels * 10;
-
-
-					if (t > 0) //label nr 0 to tło
-						for(int i = 1; i<t; i++){
-							//TODO wyswietlenie ramek z labels
-							double x = centroid.at<double>(i, 0);
-							double y = centroid.at<double>(i, 1);
-
-							int top_y = stats.at<int>(i, CC_STAT_TOP);
-							int left_most_x = stats.at<int>(i, CC_STAT_LEFT);
-							int x_width = stats.at<int>(i, CC_STAT_WIDTH);
-							int y_width = stats.at<int>(i, CC_STAT_HEIGHT);
-
-							//odfiltrowanie najmniejszych box - ów
-							if (x_width * y_width > AREA_TH){
+                    //odfiltrowanie najmniejszych box - ów
+                    if (width * height > AREA_TH){
 //								for(int c = left_most_x; c < left_most_x + x_width; c++){
 //									image.at<vec_uchar_3>(top_y, c) = vec_uchar_3(0,0,255);
 //									image.at<vec_uchar_3>(top_y + y_width, c) = vec_uchar_3(0,0,255);
@@ -434,23 +428,18 @@ int main( int argc, char** argv )
 //									image.at<vec_uchar_3>(r, left_most_x + x_width) = vec_uchar_3(0,0,255);
 //								}
 
+                        //policzenie statycznych pikseli
+                        int staticPixels = countStaticPixels(&model_bin1, &FDMASK, top_x, left_most_y, width, height);
 
-							//policzenie statycznych pikseli
-							int staticPixels = countStaticPixels(&model_bin1, &FDMASK, left_most_x, top_y, x_width, y_width);
-
-
-							if((float(staticPixels)/float(x_width*y_width)) < MOVIN_PIXELS_TH){
-
-								object * newObject = createObject(0, true, 0, left_most_x, top_y, x_width, y_width);
-								tempStaticObject.push_back(newObject);
-
-							}
-							}
-
-							//FDmask - moMask - roznica pomiedzy maskami
-							//model_bin1 - fgMask - model po binaryzacji
-						}
-
+                        if((float(staticPixels)/float(width*height)) < MOVIN_PIXELS_TH){
+                            object * newObject = createObject(0, true, 0, top_x, left_most_y, width, height);
+                            tempStaticObject.push_back(newObject);
+                        }
+                    }
+                    //FDmask - moMask - roznica pomiedzy maskami
+                    //model_bin1 - fgMask - model po binaryzacji
+                }
+            }
         }
 
         for(int ii = 0; ii < staticObject.size(); ii++)
@@ -464,38 +453,15 @@ int main( int argc, char** argv )
 
         drawBox(&image, &staticObject);
 
-
-
-//        namedWindow( "Display model", WINDOW_AUTOSIZE );// Create a window for display.
 //        imshow( "Display model", model );
-////
-        namedWindow( "Display model_bin", WINDOW_AUTOSIZE );// Create a window for display.
         imshow( "Display model_bin", model_bin1 );
-
-
-//
-//        namedWindow( "Display diff", WINDOW_AUTOSIZE );// Create a window for display.
 //        imshow( "Display diff", FDMASK );
-//
-//        namedWindow( "Display YCRCB", WINDOW_AUTOSIZE );// Create a window for display.
 //        imshow( "Display YCRCB", img_YCBCR );
-
-		namedWindow( "Display YCBCR", WINDOW_AUTOSIZE );// Create a window for display.
 		imshow( "Display YCRCB", img_YCBCR);
-
-        namedWindow( "Display image", WINDOW_AUTOSIZE );// Create a window for display.
-
         imshow( "Display image", image );
 
         waitKey(2);
-
-
-
     }
-
-
     waitKey(0);                                          // Wait for a keystroke in the window
     return 0;
 }
-
-
