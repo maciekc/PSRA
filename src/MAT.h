@@ -42,6 +42,9 @@ public:
 	int size() const {
 		return c * r;
 	}
+	T * img() const {
+		return mat;
+	}
 	virtual ~MAT();
 
 	void split(vector<MAT<T>*> * v);
@@ -54,8 +57,6 @@ private:
 	int c;
 	int r;
 	T * mat;
-
-
 
 };
 
@@ -91,7 +92,6 @@ MAT<T>::MAT(Mat * img, const int ch){
 			}
 		}
 	}
-
 }
 
 template<class T>
@@ -148,7 +148,6 @@ void MAT<T>::writeAt(int a, int b, vector<T>  v){
 		return;
 	}
 	else{
-
 		for(int i =0; i< v.size(); i++)
 			mat[(a * c + b) * channels + i] = (v)[i];
 	}
@@ -157,9 +156,9 @@ void MAT<T>::writeAt(int a, int b, vector<T>  v){
 template<class T>
 void MAT<T>::writeAt(int a, int b, T v){
 
-	for(int i =0; i< channels; i++)
+	for(int i =0; i< channels; i++){
 		mat[(a * c + b) * channels + i] = v;
-
+	}
 }
 template<class T>
 void MAT<T>::writeAt(int a, int b, T v1, T v2, T v3){
@@ -184,12 +183,10 @@ void MAT<T>::copyTo(MAT<T> * dest){
 
 	for(int i = 0; i < r; i++){
 		for(int j = 0; j < c; j++){
-
-			for(int i =0; i< channels; i++)
-				dest->mat[(i*c + j) * channels + i] = this->mat[(i*c + j) * channels + i];
+			for(int k =0; k< channels; k++)
+				dest->mat[(i*c + j) * channels + k] = this->mat[(i*c + j) * channels + k];
 		}
 	}
-
 }
 
 template<class T>
@@ -217,8 +214,6 @@ void MAT<T>::split(vector<MAT<T> *> *v){
 	(*v)[0] = m1;
 	(*v)[1] = m2;
 	(*v)[2] = m3;
-
-
 }
 
 //------------------------------------------------------------------------------------------------------------------
@@ -230,7 +225,6 @@ void MAT<T>::convert2Mat(Mat * img){
 //	Vec<T, 3> p;
 	for(int i = 0; i < this->rows(); i++){
 		for(int j = 0; j <this->cols(); j++){
-			//cout<<((*this)(i,j))[0]<<endl;
 			vector<T> a = (*this)(i,j);
 			if( this->channels == 3 ){
 				Vec<T, 3> p = Vec<T, 3>(a[0], a[1], a[2]);
@@ -240,12 +234,8 @@ void MAT<T>::convert2Mat(Mat * img){
 				Vec<T, 1> p = Vec<T, 1>(a[0]);
 				img->at<Vec<T, 1>>(i,j) = p;
 			}
-
-
 		}
 	}
-
-
 }
 
 #endif /* SRC_MAT_H_ */

@@ -1,5 +1,7 @@
 #include "header.h"
 #include "MAT.h"
+#include "labellerOnePass.h"
+#include "labellerOnePass.cpp"
 #include <iostream>
 
 using namespace cv;
@@ -54,7 +56,7 @@ inline void median(MAT<uchar> * model, MAT<uchar> * medianModel, int size){
 	}
 }
 
-inline void RGB2YCBCR(MAT<uchar> * image, MAT<float> * img_YCbCr, MAT<uchar> * test){
+inline void RGB2YCBCR(MAT<uchar> * image, MAT<uchar> * img_YCbCr){
 	const float a11 = 0.299;
 	const float a12 = 0.587;
 	const float a13 = 0.114;
@@ -65,8 +67,14 @@ inline void RGB2YCBCR(MAT<uchar> * image, MAT<float> * img_YCbCr, MAT<uchar> * t
 	const float a32 = -0.418688;
 	const float a33 = -0.081312;
 
+	//const float a2 = 0.713;
+	//const float a3 = 0.564;
+
 	vector<uchar> p;
-	vector<float> f;
+	vector<uchar> f;
+	f.push_back('0');
+	f.push_back('0');
+	f.push_back('0');
 
 	for(int i = 0; i < image->rows(); i++){
 		for(int j = 0; j < image->cols(); j++){
@@ -75,15 +83,13 @@ inline void RGB2YCBCR(MAT<uchar> * image, MAT<float> * img_YCbCr, MAT<uchar> * t
 			float p1 = float(p[1]);
 			float p2 = float(p[2]);
 			f[0] = uchar(a11 * p0 + a12 * p1 + a13 * p2);
-			f[2] = uchar(a21 * p0 + a22 * p1 + a23 * p2 + float(128.0));
 		    f[1] = uchar(a31 * p0 + a32 * p1 + a33 * p2 + float(128.0));
+			f[2] = uchar(a21 * p0 + a22 * p1 + a23 * p2 + float(128.0));
 
-			//f[1] = (p[0] - f[0])*0.713 + 128;
-			//f[2] = (p[2] - f[0])*0.564 + 128;
+			//f[1] = uchar(float(p[0] - f[0])*a2 + float(128.0));
+			//f[2] = uchar(float(p[2] - f[0])*a3 + float(128.0));
 
-		    (*img_YCbCr).writeAt(i,j, f);
-
-		    vector<uchar> t = (*test)(i,j);
+		    (*img_YCbCr).writeAt(i,j,f);
 		}
     }
 }
@@ -233,16 +239,17 @@ int main( int argc, char** argv )
 {
 
     Mat image0;
-    MAT<uchar> *model = new MAT<uchar>();
-
-    MAT<uchar> *model_bin1 = new MAT<uchar>();
-    //opozniony obraz
-    MAT<uchar> *img_delay = new MAT<uchar>();
-    //roznica dwoch kolejnych klatek
-    MAT<uchar> *diff_img = new MAT<uchar>();
-    MAT<uchar> *model_YCRCB = new MAT<uchar>();
-    MAT<uchar> *FDMASK = new MAT<uchar>();
-    string dir = "D:\\studia\\IV_rok\\sem_8\\PSRA\\3\\";
+    Mat img_YCBCR0;
+    Mat model_bin_show;
+    MAT<uchar> *medianModel;
+    MAT<uchar> *model_bin1;
+    MAT<uchar> *img_delay;          //opozniony obraz
+    MAT<uchar> *model_YCRCB;
+    MAT<uchar> *FDMASK;             //roznica dwoch kolejnych klatek
+    //MAT<uchar> *diff_img = new MAT<uchar>();
+    //MAT<uchar> *model = new MAT<uchar>();
+    string dir = "3/";
+    //string dir = "D:\\studia\\IV_rok\\sem_8\\PSRA\\3\\";
     //string dir = "/home/lsriw/video_datasets/pets_2006/S1-T1-C/video/pets2006/S1-T1-C/3/";
     string file = "S1-T1-C.";
     string ext = ".jpeg";
@@ -251,38 +258,37 @@ int main( int argc, char** argv )
 	vector<object *> staticObject;
 	vector<object *> tempStaticObject;
 
-//
-////        namedWindow( "Display model", WINDOW_AUTOSIZE );// Create a window for display.
-//    namedWindow( "Display model_bin", WINDOW_AUTOSIZE );// Create a window for display.
-////        namedWindow( "Display diff", WINDOW_AUTOSIZE );// Create a window for display.
-////        namedWindow( "Display YCRCB", WINDOW_AUTOSIZE );// Create a window for display.
-//		namedWindow( "Display YCBCR", WINDOW_AUTOSIZE );// Create a window for display.
-//        namedWindow( "Display image", WINDOW_AUTOSIZE );// Create a window for display.
+//    namedWindow( "Display model", WINDOW_AUTOSIZE );// Create a window for display.
+    namedWindow( "Display model_bin", WINDOW_AUTOSIZE );// Create a window for display.
+//    namedWindow( "Display diff", WINDOW_AUTOSIZE );// Create a window for display.
+//    namedWindow( "Display YCRCB", WINDOW_AUTOSIZE );// Create a window for display.
+    namedWindow( "Display YCRCB", WINDOW_AUTOSIZE );// Create a window for display.
+    namedWindow( "Display image", WINDOW_AUTOSIZE );// Create a window for display.
 
+	stringstream ss; //MOCK
 
 	object::staticObjects = 1;
-
 
     float alpha = 0.984375;
 
     for(int i = START_FRAME; i<3020; i++){
-//        ss.seekp(0); //MOCK
-//        ss << i; //MOCK
+        ss.seekp(0); //MOCK
+        ss << i; //MOCK
+
+        if(i<10) path = dir + file + "0000" + ss.str() + ext; //MOCK
+        else if(i<100) path = dir + file + "000" + ss.str() + ext; //MOCK
+        else if(i<1000) path = dir + file + "00" + ss.str() + ext; //MOCK
+        else path = dir + file + "0" + ss.str() + ext; //MOCK
+
+//        if(i<10)
+//            path = dir + file + "0000" + to_string(i) + ext;
+//        else if(i < 100)
+//            path = dir + file + "000" + to_string(i) + ext;
 //
-//        if(i<10) path = dir + file + "0000" + ss.str() + ext; //MOCK
-//        else if(i<100) path = dir + file + "000" + ss.str() + ext; //MOCK
-//        else if(i<1000) path = dir + file + "00" + ss.str() + ext; //MOCK
-//        else path = dir + file + "0" + ss.str() + ext; //MOCK
-
-        if(i<10)
-            path = dir + file + "0000" + to_string(i) + ext;
-        else if(i < 100)
-            path = dir + file + "000" + to_string(i) + ext;
-
-        else if(i < 1000)
-           path = dir + file + "00" + to_string(i) + ext;
-        else
-            path = dir + file + "0" + to_string(i) + ext;
+//        else if(i < 1000)
+//           path = dir + file + "00" + to_string(i) + ext;
+//        else
+//            path = dir + file + "0" + to_string(i) + ext;
 
         image0 = imread(path, CV_LOAD_IMAGE_COLOR);   // Read the file
         //cout<<path<<endl;
@@ -293,54 +299,68 @@ int main( int argc, char** argv )
             return -1;
         }
 
-        Mat img_YCBCR0(image0.size(), CV_8SC3);
+        Mat img_YCBCR0(image0.size(), CV_8UC3);
+        Mat model_bin_show(image0.size(), CV_8UC3);
 
         cvtColor(image0, img_YCBCR0,  COLOR_RGB2YCrCb);
 
-        MAT<uchar> *image = new MAT<uchar>(&image0, 3);
-        MAT<uchar> *img_YCBCR = new MAT<uchar>(&img_YCBCR0, 3);
-        cout<<"tu0 " << i << "\n"<<endl;
-
+        MAT<uchar> *image = new MAT<uchar>(&image0,3);
+        MAT<uchar> *img_YCRCB = new MAT<uchar>(&img_YCBCR0, 3);
+        //MAT<uchar> *img_YCRCB = new MAT<uchar>(576,720,3);
+        //konwersja RGB -> YCBCR
+        //RGB2YCBCR(image, img_YCRCB);
+        //cout<<"tu0 " << i << "\n"<<endl;
+        //(*image).convert2Mat(&image0);
+        //(*img_YCRCB).convert2Mat(&img_YCBCR0);
+        //imshow( "Display img", image0 );
+        //imshow( "Display ycc", img_YCBCR0 );
 
         //--------------------------------------------------------------------------------------------------------
-        // konwersja RGB -> YCBCR
-        //RGB2YCBCR(&image, &img_YCBCR, &img_YCBCR2);
 
-		MAT<uchar> *medianModel = new MAT<uchar>(img_YCBCR->rows(), img_YCBCR->cols(), 1);
-		cout<<"tu 2\n"<<endl;
-	    Mat labels(img_YCBCR0.size(), CV_8SC3);
+		medianModel = new MAT<uchar>(img_YCRCB->rows(), img_YCRCB->cols(), 1);
+		//cout<<"tu 2\n"<<endl;
+		labellerOnePass labeller = labellerOnePass(img_YCRCB->cols(),img_YCRCB->rows());
+	    Mat labels(img_YCBCR0.size(), CV_8UC3);
 	    Mat stats(img_YCBCR0.size(), CV_32S);
 	    Mat centroid(img_YCBCR0.size(), CV_32S);
-	    Mat model2(img_YCBCR0.size(), CV_32S);
+	    //Mat model2(img_YCBCR0.size(), CV_32S);
 
         if(i == START_FRAME){
-        	img_YCBCR->copyTo(model);
-            model->copyTo(model_bin1);
-            model->copyTo(model_YCRCB);
-            img_YCBCR->copyTo(FDMASK);
-            img_YCBCR->copyTo(img_delay);
-            image->copyTo(diff_img);
+            model_YCRCB = new MAT<uchar>();
+            img_YCRCB->copyTo(model_YCRCB);
+
+            img_delay = new MAT<uchar>();
+            img_YCRCB->copyTo(img_delay);
+
+            model_bin1 = new MAT<uchar>(img_YCRCB->rows(),img_YCRCB->cols(),3);
+            FDMASK = new MAT<uchar>(img_YCRCB->rows(),img_YCRCB->cols(),1);
+            //img_YCRCB->copyTo(model_bin1);
+            //img_YCRCB->copyTo(FDMASK);
+
+            //image->copyTo(diff_img);
+            //model->copyTo(model_YCRCB);
         }
 
         else{
-            for(int j = 0; j < img_YCBCR->rows(); j++){
-                for(int k = 0; k < img_YCBCR->cols(); k++){
-                    vector<uchar> p = (*img_YCBCR)(j,k); // piksel obecnej ramki w ycbcr
+            for(int j = 0; j < img_YCRCB->rows(); j++){
+                for(int k = 0; k < img_YCRCB->cols(); k++){
+                    vector<uchar> p = (*img_YCRCB)(j,k); // piksel obecnej ramki w ycbcr
+
+                    vector<uchar> pd = (*img_delay)(j,k); // skladowe piksela z ramki opoznionej
 
                     vector<uchar> m = (*model_YCRCB)(j,k); //piksel obecnego modelu
 
-					//skadowe piksela z ramki opoznionej
-					int pd0 = (*img_delay)(j,k)[0];
-					int pd1 = (*img_delay)(j,k)[1];
-					int pd2 = (*img_delay)(j,k)[2];
+//					int pd0 = (*img_delay)(j,k)[0];
+//					int pd1 = (*img_delay)(j,k)[1];
+//					int pd2 = (*img_delay)(j,k)[2];
 
 					//-------------------------------------------------------------------------------------------------------
 				   //binaryzacja
 					int diff = (1.5 * abs(m[0] - p[0]) + 2 * (abs(m[1] - p[1]) + abs(m[2] - p[2])) > TH_BIN) ? 255:0;
 
-					//int diff_delay = (1.5 * abs(p[0] - pd0) + 2 * (abs(p[1] - pd1) + abs(p[2] - pd2)) > TH_BIN) ? 255:0;
+					//int diff_delay = (1.5 * abs(p[0] - pd[0]) + 2 * (abs(p[1] - pd[1]) + abs(p[2] - pd[2])) > TH_BIN) ? 255:0;
 
-					int diff_delay = ((p[0] - pd0) > DIFF_TH) ? 255:0;
+					int diff_delay = (abs(p[0] - pd[0]) > DIFF_TH) ? 255:0;
 					(*model_bin1).writeAt(j,k, diff);
 					//--------------------------------------------------------------------------------------------------------
 					// aktualizacja modelu tła
@@ -353,13 +373,13 @@ int main( int argc, char** argv )
 	                    float m2 = float(m[1]) * alpha;
 	                    float m3 = float(m[2]) * alpha;
 
-	                    (*model).writeAt(j,k, p1+m1, p2+m2, p3+m3);
+	                    (*model_YCRCB).writeAt(j,k, p1+m1, p2+m2, p3+m3);
 					}
 
 					//-------------------------------------------------------------------------------------------------------
 					//tworzenie roznicy pomiedzy dwoma ramkami
-					(*FDMASK).writeAt(j,k, uchar(diff_delay));
-					(*img_delay).writeAt(j,k, (*img_YCBCR)(j,k));
+					(*FDMASK).writeAt(j,k,uchar(diff_delay));
+					(*img_delay).writeAt(j,k,(*img_YCRCB)(j,k));
                 }
             }
 
@@ -369,32 +389,40 @@ int main( int argc, char** argv )
 
             median((rgbChannels[0]), medianModel, 5);
 
-            Mat medianModel_Mat(medianModel->rows(), medianModel->cols(), CV_8SC1);
+            //Mat medianModel_Mat(medianModel->rows(), medianModel->cols(), CV_8SC1);
 
-            (*medianModel).convert2Mat(&medianModel_Mat);
+            //(*medianModel).convert2Mat(&medianModel_Mat);
 
-            cout << medianModel_Mat.channels() << " " << medianModel_Mat.rows << endl;
-            int t = connectedComponentsWithStats(medianModel_Mat, labels, stats, centroid,8,CV_32S);
+            unsigned int t = 0;
+            objectPL *labelledObjects = new objectPL[MAX_LABELS];;
+            labeller.step(medianModel->img(),FDMASK->img());
+            labeller.getParameters(t,labelledObjects);
+            //int t = connectedComponentsWithStats(medianModel_Mat, labels, stats, centroid,8,CV_32S);
 
-            labels.convertTo(labels, CV_8SC3);
-            labels = labels * 10;
+            //labels.convertTo(labels, CV_8SC3);
+            //labels = labels * 10;
 
             if (t > 0){ //label nr 0 to tło
-                for(int i = 1; i<t; i++){
+                for(int iObj = 1; iObj<t; iObj++){
                     //TODO wyswietlenie ramek z labels
-                    double x = centroid.at<double>(i, 0);
-                    double y = centroid.at<double>(i, 1);
-
-                    int top_x = stats.at<int>(i, CC_STAT_TOP);
-                    int left_most_y = stats.at<int>(i, CC_STAT_LEFT);
-                    int height = stats.at<int>(i, CC_STAT_HEIGHT);
-                    int width = stats.at<int>(i, CC_STAT_WIDTH);
+//                    double x = centroid.at<double>(i, 0);
+//                    double y = centroid.at<double>(i, 1);
+//
+//                    int top_x = stats.at<int>(i, CC_STAT_TOP);
+//                    int left_most_y = stats.at<int>(i, CC_STAT_LEFT);
+//                    int height = stats.at<int>(i, CC_STAT_HEIGHT);
+//                    int width = stats.at<int>(i, CC_STAT_WIDTH);
+                    int top_x = labelledObjects[iObj].ymin;
+                    int left_most_y = labelledObjects[iObj].xmin;
+                    int height = labelledObjects[iObj].ymax - labelledObjects[iObj].ymin - 1;
+                    int width = labelledObjects[iObj].xmax - labelledObjects[iObj].xmin - 1;
 
                     //odfiltrowanie najmniejszych box - ów
-                    if (width * height > AREA_TH){
+                    if (labelledObjects[iObj].m00 > AREA_TH){
 
                         //policzenie statycznych pikseli
-                        int staticPixels = countStaticPixels(model_bin1, FDMASK, top_x, left_most_y, width, height);
+                        //int staticPixels = countStaticPixels(medianModel, FDMASK, top_x, left_most_y, width, height);
+                        int staticPixels = labelledObjects[iObj].noOfMovingPixels;
 
                         if((float(staticPixels)/float(width*height)) < MOVIN_PIXELS_TH){
                             object * newObject = createObject(0, true, 0, top_x, left_most_y, width, height);
@@ -410,53 +438,45 @@ int main( int argc, char** argv )
 			delete rgbChannels[1];
 			delete rgbChannels[2];
 			rgbChannels.clear();
+
+            for(int ii = 0; ii < staticObject.size(); ii++)
+                staticObject[ii]->visible = false;
+
+            //przypisanie nowych obiektów do juz istniejacych lub stworzenie nowych obiektow statycznych
+            assignToObject(&staticObject, &tempStaticObject);
+
+            //usuniece niewidoczych obiektów
+            removeInvisible(&staticObject);
+
+            drawBox(image, &staticObject);
+
+            (*model_bin1).convert2Mat(&model_bin_show);
+            (*img_YCRCB).convert2Mat(&img_YCBCR0);
+            (*image).convert2Mat(&image0);
+
+    //        imshow( "Display model", model );
+            imshow( "Display model_bin", model_bin_show );
+    //        imshow( "Display diff", FDMASK );
+    //        imshow( "Display YCRCB", img_YCBCR );
+            imshow( "Display YCRCB", img_YCBCR0);
+            imshow( "Display image", image0 );
         }
-
-        for(int ii = 0; ii < staticObject.size(); ii++)
-        	staticObject[ii]->visible = false;
-
-        //przypisanie nowych obiektów do juz istniejacych lub stworzenie nowych obiektow statycznych
-        assignToObject(&staticObject, &tempStaticObject);
-
-        //usuniece niewidoczych obiektów
-        removeInvisible(&staticObject);
-
-        drawBox(image, &staticObject);
-
-        Mat model_bin_show(model_bin1->rows(), model_bin1->cols(), CV_8SC3);
-        Mat img_YCBCR_show(img_YCBCR->rows(), img_YCBCR->cols(), CV_8SC3);
-        Mat image_show(image->rows(), image->cols(), CV_8SC3);
-
-
-        (*model_bin1).convert2Mat(&model_bin_show);
-
-        (*img_YCBCR).convert2Mat(&img_YCBCR_show);
-        (*image).convert2Mat(&image_show);
-
-//        imshow( "Display model", model );
-        imshow( "Display model_bin", model_bin_show );
-//        imshow( "Display diff", FDMASK );
-//        imshow( "Display YCRCB", img_YCBCR );
-		imshow( "Display YCRCB", img_YCBCR_show);
-        imshow( "Display image", image_show );
-
 
         //-------------------------------------------------------------------------------------------------------------------------------
         //
         //usuwanie
         delete image;
         delete medianModel;
-        delete img_YCBCR;
-
+        delete img_YCRCB;
 
         waitKey(2);
     }
 
-    delete model;
+    //delete model;
 	delete model_bin1;
 	delete model_YCRCB;
 	delete img_delay;
-	delete diff_img;
+	//delete diff_img;
 	delete FDMASK;
 
     waitKey(0);                                          // Wait for a keystroke in the window
